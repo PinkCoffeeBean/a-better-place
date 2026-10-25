@@ -1,0 +1,993 @@
+<title>Een Betere Plek</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;600;700&display=swap">
+<style>
+/* Layout: full-height app. Top bar with tabs, one live view below: zoekplaat (canvas), werkplaats, kamer, platen. */
+:root{
+  --ink:#0D2427; --panel:#14363A; --panel-2:#1D474B; --line:#2C5A5F;
+  --paper:#ECF5EF; --muted:#9FBDB7; --sun:#FFD447; --sun-ink:#2B2200; --danger:#FF8F80;
+  --plastic:#5AB0FF; --metaal:#C3CCD3; --groen:#79D063; --papier:#EDBE7B; --glas:#6FE6D8;
+  --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--ink);color:var(--paper);font-family:var(--body);font-size:15px;overflow:hidden}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+
+#app{height:100%;box-sizing:border-box;display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-.01em;white-space:nowrap}
+.brand svg{width:30px;height:34px}
+.tabs{display:flex;flex-wrap:wrap;gap:2px;background:var(--panel);padding:4px;border-radius:999px}
+.tab{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:14px;padding:8px 14px;border-radius:999px;cursor:pointer}
+.tab:hover{color:var(--paper)}
+.tab[aria-selected="true"]{background:var(--paper);color:var(--ink)}
+.points{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--sun);color:var(--sun-ink);font-weight:700;padding:5px 14px 5px 6px;border-radius:999px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.points .coin{width:24px;height:24px;border-radius:50%;background:var(--sun-ink);color:var(--sun);display:grid;place-items:center;font-family:var(--display);font-size:13px}
+.points.bump{animation:bump .5s}
+
+main{min-height:0;position:relative}
+.view{height:100%;overflow:auto}
+#view-zoek{overflow:hidden}
+
+/* ---------- Zoekplaat ---------- */
+.stage{position:relative;height:100%;border-radius:20px;overflow:hidden;background:#0A1C1E;box-shadow:inset 0 0 0 1px var(--line)}
+#scene{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+#scene.grabbing{cursor:grabbing}
+.hud{position:absolute;pointer-events:none;display:flex;gap:8px}
+.hud > *{pointer-events:auto}
+.glass{background:rgba(13,36,39,.86);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.hud-tl{top:12px;left:12px;flex-direction:column;align-items:flex-start;max-width:calc(100% - 24px)}
+.scene-card{padding:10px 14px;display:grid;gap:6px;min-width:190px}
+.scene-card b{font-family:var(--display);font-size:19px;font-weight:800}
+.scene-card .sub{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.meter{height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--groen);border-radius:3px;transition:width .4s}
+.mats{display:flex;flex-wrap:wrap;gap:4px;padding:6px}
+.mat{display:inline-flex;align-items:center;gap:6px;padding:4px 9px 4px 6px;border-radius:999px;font-size:13px;font-variant-numeric:tabular-nums}
+.mat .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.mat.bump{animation:bump .5s}
+.hud-tr{top:12px;right:12px}
+.hud-br{right:12px;bottom:12px;flex-direction:column}
+.hud-bl{left:12px;bottom:12px;align-items:flex-end}
+.iconbtn{width:44px;height:44px;border:0;cursor:pointer;display:grid;place-items:center;font-size:22px;font-weight:700;color:var(--paper)}
+.iconbtn:hover{background:var(--panel-2)}
+.hintbtn{border:0;cursor:pointer;padding:10px 14px;font-weight:700;color:var(--paper);display:flex;gap:8px;align-items:center}
+.hintbtn small{color:var(--sun);font-weight:600}
+.hintbtn:disabled{opacity:.5;cursor:not-allowed}
+.bagbox{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 10px}
+.bagbox svg{width:52px;height:58px;overflow:visible}
+.bagbox .lbl{display:grid;line-height:1.25}
+.bagbox .lbl b{font-family:var(--display);font-size:18px;font-variant-numeric:tabular-nums}
+.bagbox .lbl span{color:var(--muted);font-size:12.5px}
+#bagSvg.tied{animation:tie .9s}
+#bagFill{transition:y .35s,height .35s}
+.toasts{position:absolute;left:12px;bottom:96px;display:flex;flex-direction:column-reverse;gap:6px;pointer-events:none}
+.toast{padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px;background:rgba(13,36,39,.9);display:flex;align-items:center;gap:8px;animation:rise 1.6s forwards;width:max-content}
+.toast .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.toast.big{background:var(--sun);color:var(--sun-ink);font-size:16px;padding:9px 16px;animation-duration:2.4s}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;padding:16px;background:rgba(8,22,24,.55)}
+.overlay .card{max-width:420px;padding:22px 24px;display:grid;gap:12px;background:var(--panel);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.overlay h3{font-family:var(--display);font-weight:800;font-size:26px;margin:0;text-wrap:balance;line-height:1.1}
+.overlay p{margin:0;color:var(--muted);line-height:1.5}
+.overlay .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.btn{border:0;cursor:pointer;border-radius:999px;padding:10px 18px;font-weight:700;background:var(--panel-2);color:var(--paper)}
+.btn:hover{filter:brightness(1.12)}
+.btn.primary{background:var(--sun);color:var(--sun-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+
+/* ---------- Pagina's ---------- */
+.page{max-width:1100px;margin:0 auto;display:grid;gap:22px;padding-block:6px 40px}
+.page h2{font-family:var(--display);font-weight:800;font-size:clamp(28px,4vw,40px);line-height:1.05;margin:0;text-wrap:balance;letter-spacing:-.015em}
+.page h3{font-family:var(--display);font-weight:800;font-size:20px;margin:0}
+.lead{color:var(--muted);margin:6px 0 0;max-width:62ch;line-height:1.5}
+.bins{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.bin{position:relative;background:var(--panel);border-radius:6px 6px 16px 16px;padding:22px 14px 14px;display:grid;gap:2px}
+.bin::before{content:"";position:absolute;left:-3px;right:-3px;top:0;height:10px;border-radius:6px;background:var(--c)}
+.bin::after{content:"";position:absolute;left:40%;right:40%;top:-5px;height:6px;border-radius:4px 4px 0 0;background:var(--c)}
+.bin .n{font-family:var(--display);font-size:36px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.bin .name{color:var(--muted);font-size:13px}
+.recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.recipe{background:var(--panel);border-radius:18px;padding:16px;display:grid;grid-template-rows:auto auto 1fr auto;gap:10px}
+.recipe .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.recipe .e{font-size:46px;line-height:1}
+.recipe .own{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.recipe b{font-size:16px}
+.cost{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel-2);border-radius:999px;padding:3px 10px 3px 6px;font-size:13px;font-variant-numeric:tabular-nums}
+.chip .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.chip.short{color:var(--danger)}
+.status{min-height:1.4em;color:var(--sun);font-weight:600}
+
+.room-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.swatches{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13px}
+.swatch{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0}
+.swatch[aria-pressed="true"]{border-color:var(--sun);box-shadow:0 0 0 2px var(--ink) inset}
+.room{position:relative;width:100%;max-width:100%;aspect-ratio:16/10;border-radius:20px;overflow:hidden;container-type:inline-size;touch-action:none;user-select:none;-webkit-user-select:none;--wall:#E8EFE9}
+.room .wall{position:absolute;inset:0 0 38% 0;background:var(--wall);background-image:radial-gradient(rgba(0,0,0,.05) 1.5px,transparent 1.6px);background-size:3.2cqw 3.2cqw}
+.room .floor{position:absolute;inset:62% 0 0 0;background:linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,0) 40%),repeating-linear-gradient(90deg,#C4955F 0 8%,#B4834F 8% 8.3%,#BC8C58 8.3% 16%,#B4834F 16% 16.3%)}
+.room .skirt{position:absolute;left:0;right:0;top:61%;height:1.6%;background:#F6F1E8;box-shadow:0 .3cqw .5cqw rgba(0,0,0,.18)}
+.room .window{position:absolute;left:8%;top:9%;width:19%;height:33%;background:linear-gradient(#8ECDF2,#D5EEFB);border:1cqw solid #FBFBF8;border-radius:.6cqw;box-shadow:0 .4cqw 1cqw rgba(0,0,0,.15)}
+.room .window::before,.room .window::after{content:"";position:absolute;background:#FBFBF8}
+.room .window::before{left:50%;top:0;bottom:0;width:.8cqw;transform:translateX(-50%)}
+.room .window::after{top:50%;left:0;right:0;height:.8cqw;transform:translateY(-50%)}
+.ritem{position:absolute;transform:translate(-50%,-100%);font-size:calc(7.5cqw * var(--d,1));line-height:1;cursor:grab;filter:drop-shadow(0 .5cqw .35cqw rgba(0,0,0,.28));border-radius:10px;padding:2px}
+.ritem span{display:block}
+.ritem.flip span{transform:scaleX(-1)}
+.ritem.sel{outline:2px dashed var(--sun);outline-offset:3px}
+.room-empty{position:absolute;left:50%;top:30%;transform:translateX(-50%);background:rgba(255,255,255,.88);color:#1C2B2D;padding:10px 16px;border-radius:12px;font-weight:600;text-align:center;width:max-content;max-width:80%}
+.roomtools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.storage{display:flex;flex-wrap:wrap;gap:8px}
+.sitem{border:0;cursor:pointer;background:var(--panel);border-radius:14px;padding:8px 12px 8px 8px;display:flex;align-items:center;gap:8px;font-weight:600}
+.sitem:hover{background:var(--panel-2)}
+.sitem .e{font-size:28px;line-height:1}
+.sitem small{color:var(--muted);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+
+.plates{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.plate{background:var(--panel);border-radius:18px;overflow:hidden;display:grid;grid-template-rows:auto 1fr}
+.plate canvas{display:block;width:100%;aspect-ratio:3/2;max-width:100%}
+.plate.locked canvas{filter:blur(3px) brightness(.45) saturate(.6)}
+.plate .body{padding:14px 16px 16px;display:grid;gap:8px;align-content:start}
+.plate .body p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+.plate .meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;font-variant-numeric:tabular-nums}
+.pill{padding:3px 10px;border-radius:999px;background:var(--panel-2);font-weight:700;font-size:12.5px}
+.pill.ok{background:var(--groen);color:#0E2A0A}
+.foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;color:var(--muted);font-size:13px}
+
+@keyframes rise{0%{opacity:0;transform:translateY(8px)}12%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+@keyframes bump{40%{transform:scale(1.18)}}
+@keyframes tie{20%{transform:rotate(-8deg)}40%{transform:rotate(7deg)}60%{transform:rotate(-4deg)}80%{transform:rotate(2deg)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition:none!important}.toast{animation:none}}
+@media (max-width:640px){
+  .brand{font-size:19px}
+  .tab{padding:7px 10px;font-size:13px}
+  .scene-card{min-width:0;padding:8px 12px}
+  .scene-card b{font-size:16px}
+  .bagbox svg{width:40px;height:46px}
+}
+</style>
+
+<div id="app">
+  <header class="bar">
+    <div class="brand">
+      <svg viewBox="0 0 64 72" aria-hidden="true"><path d="M14 20 C7 32 5 52 10 64 Q32 72 54 64 C59 52 57 32 50 20 Z" fill="#26302F" stroke="#ECF5EF" stroke-width="3"/><path d="M24 20 L19 6 M40 20 L45 6" stroke="#ECF5EF" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="18" r="5" fill="#FFD447"/></svg>
+      Een Betere Plek
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Onderdelen">
+      <button class="tab" role="tab" data-tab="zoek" id="tab-zoek">Zoeken</button>
+      <button class="tab" role="tab" data-tab="werk" id="tab-werk">Werkplaats</button>
+      <button class="tab" role="tab" data-tab="kamer" id="tab-kamer">Mijn kamer</button>
+      <button class="tab" role="tab" data-tab="platen" id="tab-platen">Zoekplaten</button>
+    </nav>
+    <div class="points" id="points" aria-live="polite"><span class="coin">P</span><span id="pointsN">0</span> punten</div>
+  </header>
+
+  <main>
+    <section class="view" id="view-zoek" role="tabpanel" aria-labelledby="tab-zoek">
+      <div class="stage" id="stage">
+        <canvas id="scene" aria-label="Zoekplaat. Klik op rommel om het op te ruimen."></canvas>
+
+        <div class="hud hud-tl">
+          <div class="glass scene-card">
+            <b id="sceneName">Stadspark</b>
+            <span class="sub" id="sceneProg">0 van 25 gevonden</span>
+            <div class="meter"><i id="sceneMeter" style="width:0"></i></div>
+          </div>
+          <div class="glass mats" id="hudMats"></div>
+        </div>
+
+        <div class="hud hud-tr">
+          <button class="glass hintbtn" id="hintBtn">Hint <small>5 punten</small></button>
+        </div>
+
+        <div class="hud hud-br">
+          <button class="glass iconbtn" id="zoomIn" aria-label="Inzoomen">+</button>
+          <button class="glass iconbtn" id="zoomOut" aria-label="Uitzoomen">&minus;</button>
+          <button class="glass iconbtn" id="zoomFit" aria-label="Hele plaat tonen" style="font-size:16px">&#x2922;</button>
+        </div>
+
+        <div class="hud hud-bl">
+          <div class="glass bagbox" id="bagBox">
+            <svg id="bagSvg" viewBox="0 0 64 72" aria-hidden="true">
+              <defs><clipPath id="bagClip"><path d="M14 20 C7 32 5 52 10 64 Q32 72 54 64 C59 52 57 32 50 20 Z"/></clipPath></defs>
+              <path d="M14 20 C7 32 5 52 10 64 Q32 72 54 64 C59 52 57 32 50 20 Z" fill="#26302F"/>
+              <rect id="bagFill" clip-path="url(#bagClip)" x="0" y="70" width="64" height="0" fill="#79D063"/>
+              <path d="M14 20 C7 32 5 52 10 64 Q32 72 54 64 C59 52 57 32 50 20 Z" fill="none" stroke="#ECF5EF" stroke-width="3"/>
+              <path d="M24 20 L19 6 M40 20 L45 6" stroke="#ECF5EF" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="32" cy="18" r="5" fill="#FFD447"/>
+            </svg>
+            <div class="lbl"><b id="bagN">0 / 5</b><span id="bagsTotal">0 volle zakken</span></div>
+          </div>
+        </div>
+
+        <div class="toasts" id="toasts" aria-live="polite"></div>
+
+        <div class="overlay" id="intro" hidden>
+          <div class="card">
+            <h3>Ruim de zoekplaat op</h3>
+            <p>Overal ligt rommel verstopt: blikjes, schillen, kapotte lampen, oude kranten. Klik erop en het gaat de vuilniszak in.</p>
+            <p>Scroll of knijp om in te zoomen en sleep om rond te kijken. Elke volle zak levert 10 punten op. Met punten open je nieuwe zoekplaten.</p>
+            <div class="row"><button class="btn primary" id="introGo">Begin met zoeken</button></div>
+          </div>
+        </div>
+
+        <div class="overlay" id="complete" hidden>
+          <div class="card">
+            <h3 id="completeTitle">Het park is schoon!</h3>
+            <p id="completeText"></p>
+            <div class="row">
+              <button class="btn primary" data-go="werk">Naar de werkplaats</button>
+              <button class="btn" data-go="platen">Andere zoekplaat</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-werk" role="tabpanel" aria-labelledby="tab-werk" hidden>
+      <div class="page">
+        <div>
+          <h2>Werkplaats</h2>
+          <p class="lead">Alles wat je opraapt wordt vanzelf gesorteerd. Van die grondstoffen maak je nieuwe spullen voor je eigen kamer.</p>
+        </div>
+        <div class="bins" id="bins"></div>
+        <div class="status" id="craftStatus" aria-live="polite"></div>
+        <div class="recipes" id="recipes"></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-kamer" role="tabpanel" aria-labelledby="tab-kamer" hidden>
+      <div class="page">
+        <div class="room-head">
+          <div>
+            <h2>Mijn kamer</h2>
+            <p class="lead">Sleep je gerecyclede spullen naar de juiste plek. Klik op een voorwerp om het te spiegelen of terug te zetten.</p>
+          </div>
+          <div class="swatches" id="swatches"><span>Muur</span></div>
+        </div>
+        <div class="roomtools" id="roomTools" hidden>
+          <span class="muted" id="selName"></span>
+          <button class="btn" id="flipBtn">Spiegelen</button>
+          <button class="btn" id="storeBtn">Terug naar opslag</button>
+        </div>
+        <div class="room" id="room">
+          <div class="wall"></div><div class="window"></div><div class="floor"></div><div class="skirt"></div>
+        </div>
+        <div>
+          <h3>Opslag</h3>
+          <p class="lead" id="storageHint" style="margin-bottom:10px">Klik op een voorwerp om het in je kamer te zetten.</p>
+          <div class="storage" id="storage"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-platen" role="tabpanel" aria-labelledby="tab-platen" hidden>
+      <div class="page">
+        <div>
+          <h2>Zoekplaten</h2>
+          <p class="lead">Elke plaat telt 25 stuks rommel. Een schone plaat levert 20 bonuspunten op. Gebruik je punten om de volgende plaat te openen.</p>
+        </div>
+        <div class="plates" id="plates"></div>
+        <div class="foot">
+          <span>Je voortgang wordt in deze browser bewaard.</span>
+          <button class="btn" id="resetBtn">Opnieuw beginnen</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+const W = 3000, H = 2000;
+const BAG_SIZE = 5, BAG_POINTS = 10, CLEAN_BONUS = 20, HINT_COST = 5, TRASH_PER_MAT = 5;
+const MAT_KEYS = ['plastic', 'metaal', 'groen', 'papier', 'glas'];
+const MATS = {
+  plastic: { name: 'Plastic', c: 'var(--plastic)' },
+  metaal:  { name: 'Metaal', c: 'var(--metaal)' },
+  groen:   { name: 'Groenafval', c: 'var(--groen)' },
+  papier:  { name: 'Papier', c: 'var(--papier)' },
+  glas:    { name: 'Glas', c: 'var(--glas)' },
+};
+const TRASH = {
+  plastic: ['🥤', '🧴', '🛍️', '🪣', '🧽'],
+  metaal:  ['🥫', '🔩', '🔧', '🔑', '🔋', '⚙️'],
+  groen:   ['🍌', '🍂', '🥀', '🦴', '🥕'],
+  papier:  ['📰', '📦', '🧻', '🧃', '✉️', '🥡'],
+  glas:    ['🍾', '🥛', '💡', '🍷', '🥃'],
+};
+const RECIPES = [
+  { id: 'plant',   e: '🪴', name: 'Plant in oude emmer', cost: { plastic: 1, groen: 3 } },
+  { id: 'stoel',   e: '🪑', name: 'Stoel', cost: { metaal: 3, plastic: 2 } },
+  { id: 'kunst',   e: '🖼️', name: 'Schilderij', cost: { papier: 2, glas: 1 } },
+  { id: 'lantaarn',e: '🏮', name: 'Lantaarn', cost: { papier: 1, glas: 2, metaal: 1 } },
+  { id: 'boeken',  e: '📚', name: 'Boekenstapel', cost: { papier: 4 } },
+  { id: 'knuffel', e: '🧸', name: 'Knuffelbeer', cost: { plastic: 3, papier: 1 } },
+  { id: 'klok',    e: '🕰️', name: 'Staande klok', cost: { metaal: 2, glas: 2 } },
+  { id: 'spiegel', e: '🪞', name: 'Spiegel', cost: { glas: 3, metaal: 1 } },
+  { id: 'bloem',   e: '🌻', name: 'Zonnebloem in fles', cost: { groen: 2, glas: 1 } },
+  { id: 'cactus',  e: '🌵', name: 'Cactus', cost: { groen: 3, plastic: 1 } },
+  { id: 'gitaar',  e: '🎸', name: 'Gitaar', cost: { metaal: 2, papier: 2, plastic: 1 } },
+  { id: 'radio',   e: '📻', name: 'Radio', cost: { metaal: 3, plastic: 2, glas: 1 } },
+  { id: 'bank',    e: '🛋️', name: 'Bank', cost: { plastic: 4, papier: 3, metaal: 2 } },
+  { id: 'tv',      e: '📺', name: 'Televisie', cost: { glas: 3, metaal: 2, plastic: 2 } },
+  { id: 'bed',     e: '🛏️', name: 'Bed', cost: { papier: 4, plastic: 3, metaal: 3 } },
+];
+const WALLS = [['#E8EFE9', 'Mint'], ['#F4D6C6', 'Perzik'], ['#C9DDF0', 'Lucht'], ['#F2E3A6', 'Zon'], ['#3E5C63', 'Nacht']];
+const PEOPLE = ['🚶', '🚶‍♀️', '🧍', '🧍‍♀️', '🏃', '🏃‍♀️', '🧑‍🦯', '👩‍🦽', '🧘', '🤸', '💃', '🕺', '👫', '👭', '👬', '🙋', '🙋‍♂️', '🤷', '👨‍👩‍👧', '🧑‍🍼'];
+
+// ---------- geometry helpers ----------
+const rng = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function distSeg(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const t = clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy), 0, 1);
+  return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+}
+function distPoly(px, py, pts) {
+  let m = 1e9;
+  for (let i = 0; i < pts.length - 1; i++) m = Math.min(m, distSeg(px, py, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]));
+  return m;
+}
+function strokePoly(ctx, pts, w, c) {
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (const p of pts) ctx.lineTo(p[0], p[1]);
+  ctx.lineWidth = w; ctx.strokeStyle = c; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+}
+const inEllipse = (x, y, cx, cy, rx, ry) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1;
+function ellipse(ctx, x, y, rx, ry, c, rot = 0) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill(); }
+function blobs(r, n, colors, rmin, rmax) {
+  return Array.from({ length: n }, () => ({ x: r() * W, y: r() * H, rx: rmin + r() * (rmax - rmin), ry: rmin * 0.6 + r() * (rmax - rmin) * 0.5, c: colors[Math.floor(r() * colors.length)], rot: r() * 3 }));
+}
+const sampleLine = (x0, x1, step, f) => { const p = []; for (let x = x0; x <= x1; x += step) p.push(f(x)); return p; };
+
+// ---------- zoekplaten ----------
+const SCENE_DEFS = [
+  {
+    id: 'park', name: 'Stadspark', cost: 0, seed: 11,
+    blurb: 'Een zonnige zondag in het park. Picknickers, eenden, en overal verstopte rommel.',
+    prep(r) {
+      this.blobs = blobs(r, 260, ['#74BB62', '#88CD73', '#6FB35D'], 30, 110);
+      this.p1 = sampleLine(0, W, 60, x => [x, 1380 + 110 * Math.sin(x / 420) + 40 * Math.sin(x / 170)]);
+      this.p2 = sampleLine(0, 1400, 60, y => [1450 + 90 * Math.sin(y / 300), y]);
+    },
+    zone(x, y) {
+      if (inEllipse(x, y, 2250, 600, 480, 290)) return 'water';
+      if (distPoly(x, y, this.p1) < 50 || distPoly(x, y, this.p2) < 50) return 'path';
+      if (x > 300 && x < 860 && y > 250 && y < 630) return 'sand';
+      if (inEllipse(x, y, 850, 950, 200, 120)) return 'bed';
+      return 'grass';
+    },
+    bg(ctx) {
+      ctx.fillStyle = '#7EC46B'; ctx.fillRect(0, 0, W, H);
+      for (const b of this.blobs) ellipse(ctx, b.x, b.y, b.rx, b.ry, b.c, b.rot);
+      ctx.beginPath(); ctx.roundRect(300, 250, 560, 380, 40); ctx.fillStyle = '#EBD08F'; ctx.fill(); ctx.lineWidth = 12; ctx.strokeStyle = '#C9A866'; ctx.stroke();
+      ellipse(ctx, 850, 950, 214, 134, '#5E8E45'); ellipse(ctx, 850, 950, 200, 120, '#6B4F35');
+      ellipse(ctx, 2250, 600, 510, 318, '#A3AB9E'); ellipse(ctx, 2250, 600, 480, 290, '#3E95CC'); ellipse(ctx, 2230, 580, 400, 220, '#55ABDD');
+      ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 6;
+      for (let i = 0; i < 14; i++) { const x = 1900 + (i * 97) % 680, y = 450 + (i * 131) % 300; ctx.beginPath(); ctx.arc(x, y, 26, 3.6, 5.8); ctx.stroke(); }
+      for (const p of [this.p1, this.p2]) strokePoly(ctx, p, 112, '#C9B488');
+      for (const p of [this.p1, this.p2]) strokePoly(ctx, p, 92, '#E9DAB0');
+    },
+    trashZones: ['grass', 'path', 'sand', 'water', 'bed'],
+    decor: [
+      { e: ['🌳', '🌳', '🌲'], n: 48, s: [110, 170], z: ['grass'] },
+      { e: ['🌿', '🌱', '☘️'], n: 60, s: [36, 62], z: ['grass'] },
+      { e: ['🌷', '🌼', '🌸', '🌻'], n: 80, s: [24, 38], z: ['grass'] },
+      { e: ['🌷', '🌹', '🌼', '🌺'], n: 40, s: [26, 36], z: ['bed'] },
+      { e: PEOPLE, n: 120, s: [55, 80], z: ['grass', 'path', 'sand'] },
+      { e: ['⚽', '🎈', '🪁', '🛹', '🏐'], n: 22, s: [28, 42], z: ['grass', 'sand'] },
+      { e: ['🐕', '🐈', '🐿️', '🕊️', '🐦', '🐩'], n: 44, s: [30, 50], z: ['grass', 'path'] },
+      { e: ['🦆', '🦢', '🦆'], n: 20, s: [36, 56], z: ['water'] },
+      { e: ['🧺', '⛱️', '🚲', '🛴', '🪑', '🧸'], n: 24, s: [40, 64], z: ['grass', 'path'] },
+      { e: ['⛲'], n: 2, s: [120, 140], z: ['grass'] },
+    ],
+  },
+  {
+    id: 'strand', name: 'Het strand', cost: 40, seed: 27,
+    blurb: 'Handdoeken, parasols en zandkastelen. Tussen de schelpen liggen blikjes en flessen.',
+    shore: y => 2050 + 110 * Math.sin(y / 260) + 50 * Math.sin(y / 97),
+    dune: x => 240 + 40 * Math.sin(x / 210) + 20 * Math.sin(x / 77),
+    prep(r) {
+      this.blobs = blobs(r, 200, ['#EED39A', '#F5E1B2', '#E9CD90'], 20, 80);
+      this.towels = [];
+      while (this.towels.length < 44) {
+        const x = 150 + r() * 1800, y = 380 + r() * 1550;
+        if (this.zone(x, y) !== 'sand' || x > this.shore(y) - 150) continue;
+        this.towels.push({ x, y, rot: (r() - 0.5) * 0.8, c: ['#E85D75', '#3C8DD9', '#F2A93B', '#7A5BD1', '#2FAE8C', '#F06B3B'][Math.floor(r() * 6)] });
+      }
+    },
+    zone(x, y) {
+      if (x > this.shore(y)) return 'water';
+      if (y < this.dune(x)) return 'dune';
+      return 'sand';
+    },
+    bg(ctx) {
+      ctx.fillStyle = '#F2DCA4'; ctx.fillRect(0, 0, W, H);
+      for (const b of this.blobs) ellipse(ctx, b.x, b.y, b.rx, b.ry, b.c, b.rot);
+      ctx.beginPath(); ctx.moveTo(0, 0);
+      for (let x = 0; x <= W; x += 40) ctx.lineTo(x, this.dune(x));
+      ctx.lineTo(W, 0); ctx.closePath(); ctx.fillStyle = '#D3C487'; ctx.fill();
+      for (const t of this.towels) {
+        ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.rot);
+        ctx.fillStyle = t.c; ctx.fillRect(-60, -34, 120, 68);
+        ctx.fillStyle = 'rgba(255,255,255,.55)'; for (let i = -60; i < 60; i += 24) ctx.fillRect(i, -34, 10, 68);
+        ctx.restore();
+      }
+      const sea = (off, c) => {
+        ctx.beginPath(); ctx.moveTo(W, 0);
+        for (let y = 0; y <= H; y += 30) ctx.lineTo(this.shore(y) + off, y);
+        ctx.lineTo(W, H); ctx.closePath(); ctx.fillStyle = c; ctx.fill();
+      };
+      sea(-70, '#DEC386'); sea(0, '#5BC0E5'); sea(220, '#3FA2D6'); sea(560, '#2C80BC');
+      ctx.beginPath();
+      for (let y = 0; y <= H; y += 30) ctx.lineTo(this.shore(y) + 8, y);
+      ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 6;
+      for (let i = 0; i < 40; i++) { const y = (i * 151) % H, x = this.shore(y) + 120 + (i * 89) % 820; ctx.beginPath(); ctx.arc(x, y, 30, 3.6, 5.8); ctx.stroke(); }
+    },
+    trashZones: ['sand', 'dune', 'water'],
+    decor: [
+      { e: ['🌴'], n: 9, s: [140, 180], z: ['dune'] },
+      { e: ['🌾', '🌿'], n: 70, s: [34, 56], z: ['dune'] },
+      { e: ['⛱️'], n: 34, s: [80, 110], z: ['sand'] },
+      { e: PEOPLE, n: 120, s: [55, 80], z: ['sand'] },
+      { e: ['🏰'], n: 6, s: [60, 80], z: ['sand'] },
+      { e: ['🐚', '🦀', '🐚', '⭐'], n: 50, s: [18, 30], z: ['sand'] },
+      { e: ['🏐', '🪁', '🧺', '🏖️', '🎈'], n: 22, s: [30, 48], z: ['sand'] },
+      { e: ['🏄', '🏊', '🏊‍♀️', '🚣', '🤽'], n: 30, s: [50, 70], z: ['water'] },
+      { e: ['⛵', '🛶', '🚤'], n: 9, s: [80, 120], z: ['water'] },
+      { e: ['🐬', '🐟', '🐠', '🦭'], n: 18, s: [32, 50], z: ['water'] },
+      { e: ['🕊️', '🐦'], n: 26, s: [28, 40], z: ['sand', 'dune', 'water'] },
+    ],
+  },
+  {
+    id: 'markt', name: 'De markt', cost: 60, seed: 53,
+    blurb: 'Kraampjes vol fruit, kaas en bloemen. Tussen de drukte waait van alles over de stenen.',
+    prep(r) {
+      this.stalls = [];
+      const awn = ['#E8504A', '#3F9E5A', '#2F7FC1', '#F2A33A', '#8D5BC6'];
+      for (const y of [360, 860, 1360]) for (let i = 0; i < 6; i++) this.stalls.push({ x: 200 + i * 460, y, w: 340, h: 170, c: awn[Math.floor(r() * awn.length)] });
+      const p = new Path2D();
+      for (let y = 0, row = 0; y < 1800; y += 40, row++) for (let x = (row % 2) * -26; x < W; x += 52) p.rect(x, y, 52, 40);
+      this.cobbles = p;
+      this.blobs = blobs(r, 120, ['rgba(0,0,0,.05)', 'rgba(255,255,255,.06)'], 40, 140);
+    },
+    zone(x, y) {
+      if (y > 1800) return 'water';
+      if (y > 1760) return 'edge';
+      for (const s of this.stalls) {
+        if (x > s.x && x < s.x + s.w && y > s.y && y < s.y + s.h) return 'stall';
+        if (x > s.x - 10 && x < s.x + s.w + 10 && y > s.y - 80 && y <= s.y) return 'awning';
+      }
+      return 'square';
+    },
+    bg(ctx) {
+      ctx.fillStyle = '#BAB2A5'; ctx.fillRect(0, 0, W, 1800);
+      for (const b of this.blobs) ellipse(ctx, b.x, b.y, b.rx, b.ry, b.c, b.rot);
+      ctx.lineWidth = 3; ctx.strokeStyle = '#A59D90'; ctx.stroke(this.cobbles);
+      ctx.fillStyle = '#8B5A3C'; ctx.fillRect(0, 1765, W, 40);
+      ctx.fillStyle = '#4D8DB3'; ctx.fillRect(0, 1805, W, H - 1805);
+      ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 6;
+      for (let i = 0; i < 24; i++) { const x = (i * 263) % W, y = 1850 + (i * 53) % 120; ctx.beginPath(); ctx.arc(x, y, 30, 3.6, 5.8); ctx.stroke(); }
+      for (const s of this.stalls) {
+        ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(s.x + 10, s.y + 14, s.w, s.h);
+        ctx.fillStyle = '#A0703F'; ctx.fillRect(s.x, s.y, s.w, s.h);
+        ctx.fillStyle = '#B98450'; ctx.fillRect(s.x + 8, s.y + 8, s.w - 16, s.h - 16);
+        for (let i = 0; i < 8; i++) { ctx.fillStyle = i % 2 ? '#FFFFFF' : s.c; ctx.fillRect(s.x - 10 + i * (s.w + 20) / 8, s.y - 70, (s.w + 20) / 8 + 1, 70); }
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) ctx.arc(s.x - 10 + (i + 0.5) * (s.w + 20) / 8, s.y, (s.w + 20) / 16, 0, Math.PI);
+        ctx.fillStyle = s.c; ctx.fill();
+      }
+    },
+    trashZones: ['square', 'stall', 'water'],
+    decor: [
+      { e: ['🍎', '🍐', '🍊', '🍋', '🧀', '🥖', '🥦', '🍅', '🐟', '💐', '🥚', '🍇', '🥒', '🍓'], n: 170, s: [22, 32], z: ['stall'] },
+      { e: PEOPLE, n: 180, s: [55, 80], z: ['square'] },
+      { e: ['🚲', '🚲', '🛴', '🛵', '🛒'], n: 40, s: [50, 72], z: ['square'] },
+      { e: ['🐦', '🕊️', '🕊️', '🐕', '🐈'], n: 50, s: [26, 44], z: ['square'] },
+      { e: ['🌳'], n: 8, s: [130, 160], z: ['square'] },
+      { e: ['🦆', '🦢', '🚤'], n: 10, s: [40, 70], z: ['water'] },
+    ],
+  },
+  {
+    id: 'bos', name: 'Het bos', cost: 80, seed: 97,
+    blurb: 'Een camping tussen hoge dennen. Tussen paddenstoelen en mos ligt goed verstopte rommel.',
+    prep(r) {
+      this.blobs = blobs(r, 240, ['#4A7436', '#5A8743', '#3F6630', '#61904A'], 40, 140);
+      this.stream = sampleLine(0, W, 60, x => [x, 300 + x * 0.45 + 90 * Math.sin(x / 260)]);
+      this.trail = sampleLine(0, W, 60, x => [x, 1900 - x * 0.5 + 80 * Math.sin(x / 330)]);
+    },
+    clearings: [[900, 1350, 330], [2300, 600, 260]],
+    zone(x, y) {
+      if (distPoly(x, y, this.stream) < 52) return 'water';
+      if (this.clearings.some(([cx, cy, cr]) => Math.hypot(x - cx, y - cy) < cr)) return 'clearing';
+      if (distPoly(x, y, this.trail) < 34) return 'trail';
+      return 'forest';
+    },
+    bg(ctx) {
+      ctx.fillStyle = '#527D3C'; ctx.fillRect(0, 0, W, H);
+      for (const b of this.blobs) ellipse(ctx, b.x, b.y, b.rx, b.ry, b.c, b.rot);
+      for (const [x, y, rr] of this.clearings) { ellipse(ctx, x, y, rr + 20, rr + 20, '#6E9E4E'); ellipse(ctx, x, y, rr, rr, '#90BF60'); }
+      strokePoly(ctx, this.trail, 74, '#7A5C3A'); strokePoly(ctx, this.trail, 58, '#A5835A');
+      strokePoly(ctx, this.stream, 120, '#6B8E5A'); strokePoly(ctx, this.stream, 100, '#3F7FA6'); strokePoly(ctx, this.stream, 64, '#5BA4CF');
+    },
+    trashZones: ['forest', 'clearing', 'trail', 'water'],
+    decor: [
+      { e: ['🌲', '🌲', '🌳'], n: 170, s: [95, 165], z: ['forest'] },
+      { e: ['🌿', '🌾', '🌱', '☘️'], n: 110, s: [30, 50], z: ['forest', 'clearing'] },
+      { e: ['🍄'], n: 34, s: [20, 32], z: ['forest', 'clearing'] },
+      { e: ['🦊', '🦌', '🦔', '🐇', '🦉', '🐿️', '🐗', '🦡'], n: 34, s: [34, 60], z: ['forest', 'clearing', 'trail'] },
+      { e: ['⛺', '⛺', '🏕️'], n: 9, s: [100, 130], z: ['clearing'] },
+      { e: ['🔥'], n: 2, s: [50, 60], z: ['clearing'] },
+      { e: ['🚶', '🚶‍♀️', '🧗', '🧍', '🧘', '🏃‍♀️', '🧑‍🦯', '👫'], n: 50, s: [55, 75], z: ['clearing', 'trail'] },
+      { e: ['🐸', '🦆', '🐟'], n: 14, s: [28, 44], z: ['water'] },
+      { e: ['🦋', '🐝', '🐞'], n: 24, s: [16, 24], z: ['forest', 'clearing'] },
+    ],
+  },
+];
+
+function buildScene(def) {
+  const r = rng(def.seed);
+  const pick = a => a[Math.floor(r() * a.length)];
+  const between = ([a, b]) => a + r() * (b - a);
+  def.prep(r);
+  const trash = [];
+  for (const mat of MAT_KEYS) {
+    for (let i = 0; i < TRASH_PER_MAT; i++) {
+      for (let tries = 0; tries < 800; tries++) {
+        const x = 90 + r() * (W - 180), y = 90 + r() * (H - 180);
+        if (!def.trashZones.includes(def.zone(x, y))) continue;
+        if (trash.some(t => Math.hypot(t.x - x, t.y - y) < 160)) continue;
+        trash.push({ id: trash.length, x, y, mat, e: pick(TRASH[mat]), s: 21 + r() * 9, rot: (r() - 0.5) * 1.8, a: 0.82 + r() * 0.18 });
+        break;
+      }
+    }
+  }
+  const decor = [];
+  for (const g of def.decor) {
+    for (let i = 0; i < g.n; i++) {
+      for (let tries = 0; tries < 60; tries++) {
+        const x = r() * W, y = r() * H, s = between(g.s);
+        if (!g.z.includes(def.zone(x, y))) continue;
+        // decor may overlap rubbish at its edges, never cover it completely
+        if (trash.some(t => Math.hypot(t.x - x, t.y - y) < s * 0.42 + t.s * 0.25)) continue;
+        decor.push({ x, y, s, e: pick(g.e), flip: r() < 0.5, shadow: s >= 45 && !def.zone(x, y).includes('water') });
+        break;
+      }
+    }
+  }
+  decor.sort((a, b) => (a.y + a.s / 2) - (b.y + b.s / 2));
+  return { def, trash, decor };
+}
+const built = {};
+const getScene = id => built[id] || (built[id] = buildScene(SCENE_DEFS.find(d => d.id === id)));
+
+// ---------- sprites ----------
+const SPR = 160, sprites = new Map();
+function sprite(e, dirty) {
+  const key = e + (dirty ? '|d' : '');
+  let c = sprites.get(key);
+  if (c) return c;
+  c = document.createElement('canvas'); c.width = c.height = SPR;
+  const g = c.getContext('2d');
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `${SPR * 0.8}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+  if (dirty) g.filter = 'saturate(.5) brightness(.8) sepia(.35)';
+  g.fillText(e, SPR / 2, SPR / 2 + SPR * 0.05);
+  sprites.set(key, c);
+  return c;
+}
+function drawSprite(ctx, e, x, y, s, o = {}) {
+  const img = sprite(e, o.dirty), k = s / 0.8;
+  if (!o.rot && !o.flip && o.a == null) { ctx.drawImage(img, x - k / 2, y - k / 2, k, k); return; }
+  ctx.save(); ctx.translate(x, y);
+  if (o.rot) ctx.rotate(o.rot);
+  if (o.flip) ctx.scale(-1, 1);
+  if (o.a != null) ctx.globalAlpha = o.a;
+  ctx.drawImage(img, -k / 2, -k / 2, k, k);
+  ctx.restore();
+}
+function drawWorld(ctx, sc, found, view) {
+  sc.def.bg(ctx);
+  const vis = o => o.x + o.s > view.x0 && o.x - o.s < view.x1 && o.y + o.s > view.y0 && o.y - o.s < view.y1;
+  for (const t of sc.trash) if (!found.has(t.id) && vis(t)) drawSprite(ctx, t.e, t.x, t.y, t.s, { rot: t.rot, a: t.a, dirty: true });
+  ctx.fillStyle = 'rgba(0,0,0,.14)';
+  for (const d of sc.decor) if (d.shadow && vis(d)) { ctx.beginPath(); ctx.ellipse(d.x, d.y + d.s * 0.4, d.s * 0.32, d.s * 0.09, 0, 0, Math.PI * 2); ctx.fill(); }
+  for (const d of sc.decor) if (vis(d)) drawSprite(ctx, d.e, d.x, d.y, d.s, d.flip ? { flip: true } : undefined);
+}
+
+// ---------- state ----------
+const KEY = 'een-betere-plek-v1';
+const fresh = () => ({ points: 0, bagFill: 0, bags: 0, mats: { plastic: 0, metaal: 0, groen: 0, papier: 0, glas: 0 }, unlocked: ['park'], found: {}, crafted: {}, room: [], wall: WALLS[0][0], current: 'park', uid: 1, seenIntro: false });
+let S = fresh();
+try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+const foundSet = id => new Set(S.found[id] || []);
+
+const $ = id => document.getElementById(id);
+const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+const bump = n => { n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump'); };
+
+// ---------- tabs ----------
+let tab = 'zoek';
+function show(t) {
+  tab = t;
+  for (const b of document.querySelectorAll('.tab')) b.setAttribute('aria-selected', b.dataset.tab === t);
+  for (const v of ['zoek', 'werk', 'kamer', 'platen']) $('view-' + v).hidden = v !== t;
+  if (t === 'werk') renderWerk();
+  if (t === 'kamer') renderRoom();
+  if (t === 'platen') renderPlates();
+  if (t === 'zoek') { resize(); needsDraw = true; }
+}
+for (const b of document.querySelectorAll('.tab')) b.onclick = () => show(b.dataset.tab);
+for (const b of document.querySelectorAll('[data-go]')) b.onclick = () => show(b.dataset.go);
+
+// ---------- zoekplaat view ----------
+const canvas = $('scene'), ctx = canvas.getContext('2d'), stage = $('stage');
+let scene = null, found = new Set();
+let cw = 0, ch = 0, dpr = 1, sc = 1, tx = 0, ty = 0, minSc = 1, needsFit = true, needsDraw = true;
+const rings = [], flies = [];
+const FLY_MS = matchMedia('(prefers-reduced-motion: reduce)').matches ? 150 : 650;
+
+function fit() { sc = minSc; tx = (cw - W * sc) / 2; ty = (ch - H * sc) / 2; needsDraw = true; }
+function clampView() {
+  sc = clamp(sc, minSc, minSc * 10);
+  tx = W * sc <= cw ? (cw - W * sc) / 2 : clamp(tx, cw - W * sc, 0);
+  ty = H * sc <= ch ? (ch - H * sc) / 2 : clamp(ty, ch - H * sc, 0);
+  needsDraw = true;
+}
+function zoomAt(f, px, py) {
+  const ns = clamp(sc * f, minSc, minSc * 10), wx = (px - tx) / sc, wy = (py - ty) / sc;
+  sc = ns; tx = px - wx * sc; ty = py - wy * sc; clampView();
+}
+function resize() {
+  const r = stage.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cw = r.width; ch = r.height;
+  canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
+  minSc = Math.min(cw / W, ch / H);
+  if (needsFit) { fit(); needsFit = false; } else clampView();
+  needsDraw = true;
+}
+new ResizeObserver(() => { if (tab === 'zoek') resize(); }).observe(stage);
+
+function draw(now) {
+  needsDraw = false;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#0A1C1E'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * tx, dpr * ty);
+  drawWorld(ctx, scene, found, { x0: -tx / sc, y0: -ty / sc, x1: (cw - tx) / sc, y1: (ch - ty) / sc });
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const g = rings[i], p = (now - g.t0) / g.dur;
+    if (p >= 1) { rings.splice(i, 1); continue; }
+    ctx.beginPath();
+    if (g.kind === 'hint') {
+      ctx.setLineDash([24 / sc * 0.4 + 18, 18]);
+      ctx.arc(g.x, g.y, g.r * (0.92 + 0.08 * Math.sin(now / 180)), 0, Math.PI * 2);
+      ctx.lineWidth = 4 / sc + 4; ctx.strokeStyle = `rgba(255,212,71,${0.9 * (1 - p * p)})`; ctx.stroke(); ctx.setLineDash([]);
+    } else {
+      const rad = (g.kind === 'hit' ? 12 + 40 * p : 6 + 16 * p) / sc;
+      ctx.arc(g.x, g.y, rad, 0, Math.PI * 2);
+      ctx.lineWidth = 3 / sc; ctx.strokeStyle = g.kind === 'hit' ? `rgba(121,208,99,${1 - p})` : `rgba(236,245,239,${0.8 * (1 - p)})`; ctx.stroke();
+    }
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (let i = flies.length - 1; i >= 0; i--) {
+    const f = flies[i], p = (now - f.t0) / FLY_MS;
+    if (p >= 1) { flies.splice(i, 1); continue; }
+    const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+    const x = f.x0 + (f.x1 - f.x0) * e, y = f.y0 + (f.y1 - f.y0) * e - 90 * Math.sin(Math.PI * p);
+    drawSprite(ctx, f.e, x, y, 44 - 20 * p, { rot: p * 4, dirty: true });
+  }
+}
+(function loop(now) {
+  if (tab === 'zoek' && scene && cw && (needsDraw || rings.length || flies.length)) draw(now);
+  requestAnimationFrame(loop);
+})(performance.now());
+
+function loadScene(id) {
+  S.current = id; save();
+  scene = getScene(id); found = foundSet(id);
+  rings.length = 0; needsFit = true;
+  $('complete').hidden = true;
+  if (found.size === scene.trash.length) showComplete(false);
+  updateHUD();
+  if (tab === 'zoek') resize();
+}
+
+function updateHUD(bagOverride) {
+  $('pointsN').textContent = S.points;
+  $('sceneName').textContent = scene.def.name;
+  $('sceneProg').textContent = `${found.size} van ${scene.trash.length} gevonden`;
+  $('sceneMeter').style.width = (found.size / scene.trash.length * 100) + '%';
+  const fill = bagOverride ?? S.bagFill;
+  const h = 52 * fill / BAG_SIZE;
+  $('bagFill').setAttribute('y', 68 - h); $('bagFill').setAttribute('height', h);
+  $('bagN').textContent = `${fill} / ${BAG_SIZE}`;
+  $('bagsTotal').textContent = S.bags === 1 ? '1 volle zak' : `${S.bags} volle zakken`;
+  const hm = $('hudMats');
+  if (!hm.children.length) for (const k of MAT_KEYS) {
+    const m = el('span', 'mat', `<span class="dot"></span><span class="n">0</span>`);
+    m.id = 'mat-' + k; m.style.setProperty('--c', MATS[k].c); m.title = MATS[k].name; hm.append(m);
+  }
+  for (const k of MAT_KEYS) $('mat-' + k).querySelector('.n').textContent = S.mats[k];
+  $('hintBtn').disabled = S.points < HINT_COST || found.size === scene.trash.length;
+}
+
+function toast(text, mat, big) {
+  const t = el('div', 'toast' + (big ? ' big' : ''));
+  if (mat) { const d = el('span', 'dot'); d.style.setProperty('--c', MATS[mat].c); t.append(d); }
+  t.append(text);
+  $('toasts').append(t);
+  setTimeout(() => t.remove(), big ? 2500 : 1700);
+}
+
+function collect(t, sx, sy) {
+  const list = S.found[scene.def.id] || (S.found[scene.def.id] = []);
+  list.push(t.id); found.add(t.id);
+  S.mats[t.mat]++;
+  S.bagFill++;
+  let full = false;
+  if (S.bagFill >= BAG_SIZE) { S.bagFill = 0; S.bags++; S.points += BAG_POINTS; full = true; }
+  const done = found.size === scene.trash.length;
+  if (done) S.points += CLEAN_BONUS;
+  save();
+  const now = performance.now();
+  rings.push({ kind: 'hit', x: t.x, y: t.y, t0: now, dur: 500 });
+  const br = $('bagSvg').getBoundingClientRect(), cr = canvas.getBoundingClientRect();
+  flies.push({ e: t.e, x0: sx, y0: sy, x1: br.left - cr.left + br.width / 2, y1: br.top - cr.top + br.height / 2, t0: now });
+  needsDraw = true;
+  const sceneId = scene.def.id;
+  setTimeout(() => {
+    if (!scene || scene.def.id !== sceneId) return;
+    updateHUD(full ? BAG_SIZE : undefined);
+    bump($('mat-' + t.mat));
+    toast(`+1 ${MATS[t.mat].name}`, t.mat);
+    if (full) {
+      const b = $('bagSvg'); b.classList.remove('tied'); void b.offsetWidth; b.classList.add('tied');
+      bump($('points'));
+      toast(`Zak vol! +${BAG_POINTS} punten`, null, true);
+      setTimeout(() => updateHUD(), 900);
+    }
+    if (done) setTimeout(() => { bump($('points')); showComplete(true); }, 900);
+  }, FLY_MS);
+}
+
+function showComplete(justNow) {
+  const n = scene.trash.length;
+  $('completeTitle').textContent = `${scene.def.name} is schoon!`;
+  $('completeText').textContent = justNow
+    ? `Je hebt alle ${n} stuks rommel gevonden. Daarvoor krijg je ${CLEAN_BONUS} bonuspunten. Maak in de werkplaats iets van je grondstoffen, of open een nieuwe zoekplaat.`
+    : `Op deze plaat ligt geen rommel meer. Kies een andere zoekplaat om verder te zoeken.`;
+  $('complete').hidden = false;
+}
+
+function tap(sx, sy) {
+  const wx = (sx - tx) / sc, wy = (sy - ty) / sc;
+  let best = null, bd = Infinity;
+  for (const t of scene.trash) {
+    if (found.has(t.id)) continue;
+    const d = Math.hypot(t.x - wx, t.y - wy);
+    if (d < t.s * 0.7 + 10 / sc && d < bd) { best = t; bd = d; }
+  }
+  if (best) collect(best, sx, sy);
+  else rings.push({ kind: 'miss', x: wx, y: wy, t0: performance.now(), dur: 400 });
+}
+
+// pan, pinch, wheel
+const pointers = new Map();
+let gesture = null, pinch = null;
+const local = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  const p = local(e); pointers.set(e.pointerId, p);
+  if (pointers.size === 1) gesture = { sx: p.x, sy: p.y, tx, ty, moved: false, multi: false };
+  else if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    gesture.multi = true;
+    pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, sc0: sc, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, tx0: tx, ty0: ty };
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) return;
+  const p = local(e); pointers.set(e.pointerId, p);
+  if (pointers.size === 1 && gesture) {
+    const dx = p.x - gesture.sx, dy = p.y - gesture.sy;
+    if (!gesture.moved && Math.hypot(dx, dy) > 6) { gesture.moved = true; canvas.classList.add('grabbing'); }
+    if (gesture.moved) { tx = gesture.tx + dx; ty = gesture.ty + dy; clampView(); }
+  } else if (pointers.size === 2 && pinch) {
+    const [a, b] = [...pointers.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const ns = clamp(pinch.sc0 * d / pinch.d0, minSc, minSc * 10);
+    const wx = (pinch.mx - pinch.tx0) / pinch.sc0, wy = (pinch.my - pinch.ty0) / pinch.sc0;
+    sc = ns; tx = mx - wx * sc; ty = my - wy * sc; clampView();
+  }
+});
+function release(e) {
+  if (!pointers.has(e.pointerId)) return;
+  if (e.type === 'pointerup' && pointers.size === 1 && gesture && !gesture.moved && !gesture.multi) {
+    const p = local(e); tap(p.x, p.y);
+  }
+  pointers.delete(e.pointerId);
+  pinch = null;
+  if (pointers.size === 1) { const p = [...pointers.values()][0]; gesture = { sx: p.x, sy: p.y, tx, ty, moved: true, multi: true }; }
+  if (!pointers.size) { gesture = null; canvas.classList.remove('grabbing'); }
+}
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', release);
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const p = local(e);
+  zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), p.x, p.y);
+}, { passive: false });
+$('zoomIn').onclick = () => zoomAt(1.6, cw / 2, ch / 2);
+$('zoomOut').onclick = () => zoomAt(1 / 1.6, cw / 2, ch / 2);
+$('zoomFit').onclick = fit;
+document.addEventListener('keydown', e => {
+  if (tab !== 'zoek' || e.target.closest('input,textarea')) return;
+  if (e.key === '+' || e.key === '=') zoomAt(1.4, cw / 2, ch / 2);
+  if (e.key === '-') zoomAt(1 / 1.4, cw / 2, ch / 2);
+});
+$('hintBtn').onclick = () => {
+  const left = scene.trash.filter(t => !found.has(t.id));
+  if (!left.length || S.points < HINT_COST) return;
+  S.points -= HINT_COST; save();
+  const t = left[Math.floor(Math.random() * left.length)], a = Math.random() * Math.PI * 2, off = Math.random() * 130;
+  rings.push({ kind: 'hint', x: t.x + Math.cos(a) * off, y: t.y + Math.sin(a) * off, r: 230, t0: performance.now(), dur: 6000 });
+  updateHUD();
+};
+$('introGo').onclick = () => { S.seenIntro = true; save(); $('intro').hidden = true; };
+
+// ---------- werkplaats ----------
+const costChips = (cost, check) => Object.entries(cost).map(([k, n]) =>
+  `<span class="chip${check && S.mats[k] < n ? ' short' : ''}" style="--c:${MATS[k].c}" title="${MATS[k].name}"><span class="dot"></span>${n} ${MATS[k].name.toLowerCase()}</span>`).join('');
+const canMake = r => Object.entries(r.cost).every(([k, n]) => S.mats[k] >= n);
+function renderWerk() {
+  $('bins').innerHTML = MAT_KEYS.map(k => `<div class="bin" style="--c:${MATS[k].c}"><span class="n">${S.mats[k]}</span><span class="name">${MATS[k].name}</span></div>`).join('');
+  const box = $('recipes'); box.innerHTML = '';
+  for (const r of RECIPES) {
+    const own = (S.crafted[r.id] || 0) + S.room.filter(i => i.id === r.id).length;
+    const card = el('div', 'recipe', `
+      <div class="top"><span class="e">${r.e}</span><span class="own">${own ? `Je hebt er ${own}` : ''}</span></div>
+      <b>${r.name}</b>
+      <div class="cost">${costChips(r.cost, true)}</div>`);
+    const btn = el('button', 'btn primary', 'Maken');
+    btn.disabled = !canMake(r);
+    btn.onclick = () => {
+      if (!canMake(r)) return;
+      for (const [k, n] of Object.entries(r.cost)) S.mats[k] -= n;
+      S.crafted[r.id] = (S.crafted[r.id] || 0) + 1; save();
+      $('craftStatus').textContent = `${r.name} gemaakt. Je vindt hem in de opslag bij Mijn kamer.`;
+      renderWerk();
+    };
+    card.append(btn); box.append(card);
+  }
+}
+
+// ---------- kamer ----------
+let selected = null;
+const recipe = id => RECIPES.find(r => r.id === id);
+const room = $('room');
+function placeItem(n, it) {
+  n.style.left = it.x + '%'; n.style.top = it.y + '%';
+  n.style.setProperty('--d', (0.65 + 0.55 * it.y / 100).toFixed(3));
+  n.style.zIndex = Math.round(it.y * 10);
+}
+function renderRoom() {
+  room.style.setProperty('--wall', S.wall);
+  room.querySelectorAll('.ritem,.room-empty').forEach(n => n.remove());
+  for (const it of S.room) {
+    const n = el('div', 'ritem' + (it.flip ? ' flip' : '') + (it.uid === selected ? ' sel' : ''), `<span>${recipe(it.id).e}</span>`);
+    n.dataset.uid = it.uid; n.title = recipe(it.id).name;
+    placeItem(n, it); room.append(n);
+  }
+  if (!S.room.length) room.append(el('div', 'room-empty', Object.values(S.crafted).some(Boolean) ? 'Kies hieronder iets uit je opslag.' : 'Je kamer is nog leeg. Maak meubels in de werkplaats.'));
+  const sel = S.room.find(i => i.uid === selected);
+  $('roomTools').hidden = !sel;
+  if (sel) $('selName').textContent = recipe(sel.id).name;
+  const st = $('storage'); st.innerHTML = '';
+  const items = RECIPES.filter(r => S.crafted[r.id] > 0);
+  $('storageHint').textContent = items.length ? 'Klik op een voorwerp om het in je kamer te zetten.' : 'Je opslag is leeg. Spullen die je in de werkplaats maakt, komen hier terecht.';
+  for (const r of items) {
+    const b = el('button', 'sitem', `<span class="e">${r.e}</span>${r.name} <small>&times;${S.crafted[r.id]}</small>`);
+    b.onclick = () => {
+      S.crafted[r.id]--;
+      const it = { uid: S.uid++, id: r.id, x: 35 + Math.random() * 30, y: 78 + Math.random() * 12, flip: false };
+      S.room.push(it); selected = it.uid; save(); renderRoom();
+    };
+    st.append(b);
+  }
+  const sw = $('swatches');
+  sw.querySelectorAll('.swatch').forEach(n => n.remove());
+  for (const [c, name] of WALLS) {
+    const b = el('button', 'swatch'); b.style.background = c; b.setAttribute('aria-label', 'Muurkleur ' + name);
+    b.setAttribute('aria-pressed', S.wall === c);
+    b.onclick = () => { S.wall = c; save(); renderRoom(); };
+    sw.append(b);
+  }
+}
+let drag = null;
+room.addEventListener('pointerdown', e => {
+  const n = e.target.closest('.ritem');
+  if (!n) { if (selected != null) { selected = null; renderRoom(); } return; }
+  const it = S.room.find(i => i.uid === +n.dataset.uid);
+  const r = room.getBoundingClientRect();
+  drag = { it, n, ox: e.clientX, oy: e.clientY, x: it.x, y: it.y, w: r.width, h: r.height, moved: false };
+  n.setPointerCapture(e.pointerId);
+  if (selected !== it.uid) { selected = it.uid; room.querySelectorAll('.ritem.sel').forEach(x => x.classList.remove('sel')); n.classList.add('sel'); $('roomTools').hidden = false; $('selName').textContent = recipe(it.id).name; }
+});
+room.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.ox, dy = e.clientY - drag.oy;
+  if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+  drag.moved = true; drag.n.style.cursor = 'grabbing';
+  drag.it.x = clamp(drag.x + dx / drag.w * 100, 4, 96);
+  drag.it.y = clamp(drag.y + dy / drag.h * 100, 14, 99);
+  placeItem(drag.n, drag.it);
+});
+const endDrag = () => { if (drag) { drag.n.style.cursor = ''; save(); drag = null; } };
+room.addEventListener('pointerup', endDrag);
+room.addEventListener('pointercancel', endDrag);
+$('flipBtn').onclick = () => { const it = S.room.find(i => i.uid === selected); if (it) { it.flip = !it.flip; save(); renderRoom(); } };
+$('storeBtn').onclick = () => {
+  const i = S.room.findIndex(x => x.uid === selected);
+  if (i < 0) return;
+  const [it] = S.room.splice(i, 1);
+  S.crafted[it.id] = (S.crafted[it.id] || 0) + 1; selected = null; save(); renderRoom();
+};
+
+// ---------- zoekplaten ----------
+function renderPlates() {
+  const box = $('plates'); box.innerHTML = '';
+  for (const d of SCENE_DEFS) {
+    const open = S.unlocked.includes(d.id), sc2 = getScene(d.id), f = foundSet(d.id), n = sc2.trash.length;
+    const card = el('div', 'plate' + (open ? '' : ' locked'));
+    const cv = el('canvas'); cv.width = 450; cv.height = 300;
+    const g = cv.getContext('2d'); g.scale(450 / W, 300 / H);
+    drawWorld(g, sc2, f, { x0: 0, y0: 0, x1: W, y1: H });
+    const body = el('div', 'body', `<h3>${d.name}</h3><p>${d.blurb}</p>`);
+    const meta = el('div', 'meta');
+    let btn;
+    if (open) {
+      meta.innerHTML = f.size === n ? `<span class="pill ok">Schoon</span><span>${n} van ${n}</span>` : `<span class="pill">${f.size} van ${n} gevonden</span>`;
+      btn = el('button', 'btn' + (d.id === S.current ? ' primary' : ''), f.size === n ? 'Bekijken' : (f.size ? 'Verder zoeken' : 'Spelen'));
+      btn.onclick = () => { loadScene(d.id); show('zoek'); };
+    } else {
+      meta.innerHTML = `<span class="pill">Op slot</span><span>${d.cost} punten</span>`;
+      btn = el('button', 'btn primary', S.points >= d.cost ? `Openen voor ${d.cost} punten` : `Nog ${d.cost - S.points} punten nodig`);
+      btn.disabled = S.points < d.cost;
+      btn.onclick = () => {
+        if (S.points < d.cost) return;
+        S.points -= d.cost; S.unlocked.push(d.id); save();
+        $('pointsN').textContent = S.points; bump($('points'));
+        renderPlates();
+      };
+    }
+    body.append(meta, btn); card.append(cv, body); box.append(card);
+  }
+}
+let resetArmed = false;
+$('resetBtn').onclick = () => {
+  if (!resetArmed) { resetArmed = true; $('resetBtn').textContent = 'Zeker weten? Klik nogmaals'; setTimeout(() => { resetArmed = false; $('resetBtn').textContent = 'Opnieuw beginnen'; }, 4000); return; }
+  resetArmed = false; $('resetBtn').textContent = 'Opnieuw beginnen';
+  S = fresh(); save(); selected = null;
+  loadScene('park'); renderPlates();
+  $('intro').hidden = false;
+};
+
+// ---------- start ----------
+loadScene(S.unlocked.includes(S.current) ? S.current : 'park');
+$('intro').hidden = S.seenIntro;
+show('zoek');
+})();
+</script>
