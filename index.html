@@ -354,6 +354,9 @@ const sampleLine = (x0, x1, step, f) => { const p = []; for (let x = x0; x <= x1
 // 100x100 box (content within about ±40). Fills are 'paper', 'ink' or a hatching pattern.
 const INK = '#161616', PAPER = '#FDFDFB', LW = 2.3;
 let JR = Math.random; // line wobble, reseeded per object so a sprite and its close-up match
+// marker: thick wobbly lines with hatching. clean: thin colouring-book lines to match an illustration.
+const STYLES = { marker: { name: 'marker', k: 1, wob: 1, hatch: true }, clean: { name: 'clean', k: 1.65, wob: 0.35, hatch: false } };
+let STY = STYLES.marker;
 
 const TILES = {}, PATS = new WeakMap();
 function tile(name) {
@@ -376,11 +379,12 @@ function pat(g, name) {
   if (!m[name]) { m[name] = g.createPattern(tile(name), 'repeat'); m[name].setTransform?.(new DOMMatrix().scale(0.25)); }
   return m[name];
 }
-const paint = (g, f) => f === 'paper' ? PAPER : f === 'ink' ? INK : pat(g, f);
+const paint = (g, f) => f === 'paper' || (!STY.hatch && f.includes('hatch')) ? PAPER : f === 'ink' ? INK : pat(g, f);
 
 // --- wobbly line geometry ---
 function trace(t, pts, close, amp = 0.45, step = 5, rnd = JR) {
   const ph = rnd() * 6.283, fr = (0.07 + rnd() * 0.07) * 5 / step;
+  if (rnd === JR) amp *= STY.wob;
   const seq = close ? pts.concat([pts[0]]) : pts;
   let d = 0;
   for (let i = 0; i < seq.length - 1; i++) {
@@ -422,10 +426,10 @@ const E = (x, y, rx, ry, rot = 0) => shape(ringPts(x, y, rx, ry, rot));
 const R = (x, y, w, h, rad = 0) => shape(rrPts(x, y, w, h, rad));
 const P = (pts, close = true) => shape(pts, close);
 const F = (g, p, f) => { g.fillStyle = paint(g, f); g.fill(p); };
-const K = (g, p, lw = LW, c = INK) => { g.lineWidth = lw; g.strokeStyle = c; g.lineJoin = 'round'; g.lineCap = 'round'; g.stroke(p); };
+const K = (g, p, lw = LW, c = INK) => { g.lineWidth = lw * STY.k; g.strokeStyle = c; g.lineJoin = 'round'; g.lineCap = 'round'; g.stroke(p); };
 const fs = (g, p, f, lw = LW) => { if (f) F(g, p, f); K(g, p, lw); };
 const L = (g, pts, lw = 1.2, c = INK) => K(g, shape(pts, false), lw, c);
-const limb = (g, pts, w, f = 'paper') => { const p = shape(pts, false); K(g, p, w + LW * 2); g.lineWidth = w; g.strokeStyle = paint(g, f); g.stroke(p); };
+const limb = (g, pts, w, f = 'paper') => { const p = shape(pts, false); K(g, p, w / STY.k + LW * 2); g.lineWidth = w; g.strokeStyle = paint(g, f); g.stroke(p); };
 const dot = (g, x, y, r = 1.2, c = INK) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fillStyle = c; g.fill(); };
 const shade = (g, clip, region, f = 'hatch') => { g.save(); g.clip(clip); F(g, region, f); g.restore(); };
 const tuft = (g, x, y) => { L(g, [[x - 3, y], [x - 4.5, y - 5]], 1); L(g, [[x, y], [x, y - 6.5]], 1); L(g, [[x + 3, y], [x + 4.5, y - 5]], 1); };
@@ -1066,62 +1070,20 @@ const SCENE_DEFS = [
     ],
   },
   {
-    id: 'strand', name: 'Het strand', cost: 40, seed: 27,
-    blurb: 'Handdoeken, parasols en zandkastelen. Tussen de schelpen liggen blikjes en flessen.',
-    shore: y => 2050 + 110 * Math.sin(y / 260) + 50 * Math.sin(y / 97),
-    dune: x => 240 + 40 * Math.sin(x / 210) + 20 * Math.sin(x / 77),
-    prep(r) {
-      this.blobs = blobs(r, 200, ['#EED39A', '#F5E1B2', '#E9CD90'], 20, 80);
-      this.towels = [];
-      while (this.towels.length < 44) {
-        const x = 150 + r() * 1800, y = 380 + r() * 1550;
-        if (this.zone(x, y) !== 'sand' || x > this.shore(y) - 150) continue;
-        this.towels.push({ x, y, rot: (r() - 0.5) * 0.8, c: ['#E85D75', '#3C8DD9', '#F2A93B', '#7A5BD1', '#2FAE8C', '#F06B3B'][Math.floor(r() * 6)] });
-      }
+    id: 'strand', name: 'Het strand', cost: 0, seed: 27, style: 'clean',
+    blurb: 'Een drukke stranddag vol zandkastelen, strandballen en schelpen. Tussen alles door ligt rommel verstopt.',
+    // a finished illustration; rubbish is drawn on top at hand-picked spots (image pixels)
+    img: 'platen/strand.jpg', w: 846, h: 1440, trashSize: [30, 40],
+    spots: [[205, 385], [340, 320], [130, 455], [440, 455], [500, 300], [680, 300], [710, 650], [780, 880], [640, 930], [700, 1010],
+      [820, 560], [150, 700], [380, 640], [510, 740], [90, 770], [290, 880], [580, 970], [560, 890], [620, 900], [520, 1000],
+      [500, 1080], [420, 1150], [120, 1320], [460, 1330], [660, 1380], [800, 1250], [470, 1420], [130, 1430], [540, 1270], [740, 450]],
+    trashKinds: {
+      plastic: ['@cup', '@pbottle', '@bag', '@tub'],
+      metaal: ['@can', '@crushed', '@bolt', '@battery'],
+      groen: ['@peel', '@core', '@wilted', '@leaves'],
+      papier: ['@news', '@box', '@wad', '@carton'],
+      glas: ['@gbottle', '@shards', '@jar', '@bulb'],
     },
-    zone(x, y) {
-      if (x > this.shore(y)) return 'water';
-      if (y < this.dune(x)) return 'dune';
-      return 'sand';
-    },
-    bg(ctx) {
-      ctx.fillStyle = '#F2DCA4'; ctx.fillRect(0, 0, W, H);
-      for (const b of this.blobs) ellipse(ctx, b.x, b.y, b.rx, b.ry, b.c, b.rot);
-      ctx.beginPath(); ctx.moveTo(0, 0);
-      for (let x = 0; x <= W; x += 40) ctx.lineTo(x, this.dune(x));
-      ctx.lineTo(W, 0); ctx.closePath(); ctx.fillStyle = '#D3C487'; ctx.fill();
-      for (const t of this.towels) {
-        ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.rot);
-        ctx.fillStyle = t.c; ctx.fillRect(-60, -34, 120, 68);
-        ctx.fillStyle = 'rgba(255,255,255,.55)'; for (let i = -60; i < 60; i += 24) ctx.fillRect(i, -34, 10, 68);
-        ctx.restore();
-      }
-      const sea = (off, c) => {
-        ctx.beginPath(); ctx.moveTo(W, 0);
-        for (let y = 0; y <= H; y += 30) ctx.lineTo(this.shore(y) + off, y);
-        ctx.lineTo(W, H); ctx.closePath(); ctx.fillStyle = c; ctx.fill();
-      };
-      sea(-70, '#DEC386'); sea(0, '#5BC0E5'); sea(220, '#3FA2D6'); sea(560, '#2C80BC');
-      ctx.beginPath();
-      for (let y = 0; y <= H; y += 30) ctx.lineTo(this.shore(y) + 8, y);
-      ctx.lineWidth = 12; ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 6;
-      for (let i = 0; i < 40; i++) { const y = (i * 151) % H, x = this.shore(y) + 120 + (i * 89) % 820; ctx.beginPath(); ctx.arc(x, y, 30, 3.6, 5.8); ctx.stroke(); }
-    },
-    trashZones: ['sand', 'dune', 'water'],
-    decor: [
-      { e: ['🌴'], n: 9, s: [140, 180], z: ['dune'] },
-      { e: ['🌾', '🌿'], n: 70, s: [34, 56], z: ['dune'] },
-      { e: ['⛱️'], n: 34, s: [80, 110], z: ['sand'] },
-      { e: PEOPLE, n: 120, s: [55, 80], z: ['sand'] },
-      { e: ['🏰'], n: 6, s: [60, 80], z: ['sand'] },
-      { e: ['🐚', '🦀', '🐚', '⭐'], n: 50, s: [18, 30], z: ['sand'] },
-      { e: ['🏐', '🪁', '🧺', '🏖️', '🎈'], n: 22, s: [30, 48], z: ['sand'] },
-      { e: ['🏄', '🏊', '🏊‍♀️', '🚣', '🤽'], n: 30, s: [50, 70], z: ['water'] },
-      { e: ['⛵', '🛶', '🚤'], n: 9, s: [80, 120], z: ['water'] },
-      { e: ['🐬', '🐟', '🐠', '🦭'], n: 18, s: [32, 50], z: ['water'] },
-      { e: ['🕊️', '🐦'], n: 26, s: [28, 40], z: ['sand', 'dune', 'water'] },
-    ],
   },
   {
     id: 'markt', name: 'De markt', cost: 60, seed: 53,
@@ -1215,24 +1177,31 @@ function buildScene(def) {
   const between = ([a, b]) => a + r() * (b - a);
   // drawn objects ('@kind') get a variant number, so every person or tree looks a little different
   const vary = e => e[0] === '@' ? e + '#' + Math.floor(r() * (ART_VARIANTS[e.slice(1)] || 3)) : e;
-  def.prep(r);
+  def.prep?.(r);
   const kinds = def.trashKinds || TRASH;
   const fixed = (def.fixed || []).map(f => ({ ...f, e: f.e + '#0', flip: false, shadow: false }));
   const nearFixed = (x, y, s) => fixed.some(f => Math.hypot(f.x - x, f.y - y) < f.s * 0.45 + s * 0.3);
   const trash = [];
-  for (const mat of MAT_KEYS) {
-    for (let i = 0; i < TRASH_PER_MAT; i++) {
-      for (let tries = 0; tries < 800; tries++) {
-        const x = 90 + r() * (W - 180), y = 90 + r() * (H - 180);
-        if (!def.trashZones.includes(def.zone(x, y))) continue;
-        if (trash.some(t => Math.hypot(t.x - x, t.y - y) < 160) || nearFixed(x, y, 0)) continue;
-        trash.push({ id: trash.length, x, y, mat, e: vary(pick(kinds[mat])), s: 21 + r() * 9, rot: (r() - 0.5) * 1.8, a: def.ink ? undefined : 0.82 + r() * 0.18 });
-        break;
+  const item = (x, y, mat) => ({ id: trash.length, x, y, mat, e: vary(pick(kinds[mat])), s: def.trashSize ? def.trashSize[0] + r() * (def.trashSize[1] - def.trashSize[0]) : 21 + r() * 9, rot: (r() - 0.5) * 1.8, a: def.ink || def.style ? undefined : 0.82 + r() * 0.18 });
+  if (def.spots) {
+    const spots = def.spots.slice();
+    for (let i = spots.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [spots[i], spots[j]] = [spots[j], spots[i]]; }
+    for (const mat of MAT_KEYS) for (let i = 0; i < TRASH_PER_MAT; i++) { const [x, y] = spots[trash.length]; trash.push(item(x, y, mat)); }
+  } else {
+    for (const mat of MAT_KEYS) {
+      for (let i = 0; i < TRASH_PER_MAT; i++) {
+        for (let tries = 0; tries < 800; tries++) {
+          const x = 90 + r() * (W - 180), y = 90 + r() * (H - 180);
+          if (!def.trashZones.includes(def.zone(x, y))) continue;
+          if (trash.some(t => Math.hypot(t.x - x, t.y - y) < 160) || nearFixed(x, y, 0)) continue;
+          trash.push(item(x, y, mat));
+          break;
+        }
       }
     }
   }
   const decor = [...fixed];
-  for (const g of def.decor) {
+  for (const g of def.decor || []) {
     for (let i = 0; i < g.n; i++) {
       for (let tries = 0; tries < 60; tries++) {
         const x = r() * W, y = r() * H, s = between(g.s);
@@ -1260,7 +1229,7 @@ function paintArt(g, e) {
   g.save(); ART[kind](g, rng(seed)); g.restore();
 }
 function sprite(e, dirty) {
-  const key = e + (dirty ? '|d' : '');
+  const key = e + '|' + STY.name + (dirty ? '|d' : '');
   let c = sprites.get(key);
   if (c) return c;
   c = document.createElement('canvas'); c.width = c.height = SPR;
@@ -1295,8 +1264,24 @@ function drawSprite(ctx, e, x, y, s, o = {}) {
   ctx.drawImage(img, -k / 2, -k / 2, k, k);
   ctx.restore();
 }
+const IMGS = {};
+function sceneImg(def) {
+  let im = IMGS[def.id];
+  if (!im) {
+    im = IMGS[def.id] = new Image();
+    im.onload = () => { needsDraw = true; };
+    im.src = def.img;
+  }
+  return im.complete && im.naturalWidth ? im : null;
+}
 function drawWorld(ctx, sc, found, view, cacheBg) {
   pxScale = ctx.getTransform().a;
+  STY = STYLES[sc.def.style] || STYLES.marker;
+  if (sc.def.img) {
+    const im = sceneImg(sc.def);
+    ctx.fillStyle = PAPER; ctx.fillRect(0, 0, sc.def.w, sc.def.h);
+    if (im) ctx.drawImage(im, 0, 0, sc.def.w, sc.def.h);
+  } else
   // zoomed out, the background comes from a cached image; zoomed in it is drawn sharp
   if (cacheBg && pxScale <= 1) {
     if (!sc.bgCache) { const c = document.createElement('canvas'); c.width = W; c.height = H; sc.def.bg(c.getContext('2d')); sc.bgCache = c; }
@@ -1305,7 +1290,7 @@ function drawWorld(ctx, sc, found, view, cacheBg) {
   const vis = o => o.x + o.s > view.x0 && o.x - o.s < view.x1 && o.y + o.s > view.y0 && o.y - o.s < view.y1;
   for (const t of sc.trash) if (!found.has(t.id) && vis(t)) drawSprite(ctx, t.e, t.x, t.y, t.s, { rot: t.rot, a: t.a, dirty: true });
   ctx.fillStyle = 'rgba(0,0,0,.14)';
-  if (!sc.def.ink) for (const d of sc.decor) if (d.shadow && vis(d)) { ctx.beginPath(); ctx.ellipse(d.x, d.y + d.s * 0.4, d.s * 0.32, d.s * 0.09, 0, 0, Math.PI * 2); ctx.fill(); }
+  if (!sc.def.ink && !sc.def.img) for (const d of sc.decor) if (d.shadow && vis(d)) { ctx.beginPath(); ctx.ellipse(d.x, d.y + d.s * 0.4, d.s * 0.32, d.s * 0.09, 0, 0, Math.PI * 2); ctx.fill(); }
   for (const d of sc.decor) if (vis(d)) drawSprite(ctx, d.e, d.x, d.y, d.s, d.flip ? { flip: true } : undefined);
 }
 
@@ -1316,6 +1301,7 @@ let S = fresh();
 try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 const foundSet = id => new Set(S.found[id] || []);
+const isOpen = id => S.unlocked.includes(id) || SCENE_DEFS.some(d => d.id === id && !d.cost);
 
 const $ = id => document.getElementById(id);
 const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
@@ -1338,19 +1324,21 @@ for (const b of document.querySelectorAll('[data-go]')) b.onclick = () => show(b
 // ---------- zoekplaat view ----------
 const canvas = $('scene'), ctx = canvas.getContext('2d'), stage = $('stage');
 let scene = null, found = new Set();
-let cw = 0, ch = 0, dpr = 1, sc = 1, tx = 0, ty = 0, minSc = 1, needsFit = true, needsDraw = true;
+let SW = W, SH = H, cw = 0, ch = 0, dpr = 1, sc = 1, tx = 0, ty = 0, minSc = 1, needsFit = true, needsDraw = true;
 const rings = [], flies = [];
 const FLY_MS = matchMedia('(prefers-reduced-motion: reduce)').matches ? 150 : 650;
 
-function fit() { sc = minSc; tx = (cw - W * sc) / 2; ty = (ch - H * sc) / 2; needsDraw = true; }
+// an illustration is not zoomed far past its own pixels
+const maxSc = () => scene?.def.img ? Math.max(minSc * 2, Math.min(minSc * 7, 3)) : minSc * 7;
+function fit() { sc = minSc; tx = (cw - SW * sc) / 2; ty = (ch - SH * sc) / 2; needsDraw = true; }
 function clampView() {
-  sc = clamp(sc, minSc, minSc * 7);
-  tx = W * sc <= cw ? (cw - W * sc) / 2 : clamp(tx, cw - W * sc, 0);
-  ty = H * sc <= ch ? (ch - H * sc) / 2 : clamp(ty, ch - H * sc, 0);
+  sc = clamp(sc, minSc, maxSc());
+  tx = SW * sc <= cw ? (cw - SW * sc) / 2 : clamp(tx, cw - SW * sc, 0);
+  ty = SH * sc <= ch ? (ch - SH * sc) / 2 : clamp(ty, ch - SH * sc, 0);
   needsDraw = true;
 }
 function zoomAt(f, px, py) {
-  const ns = clamp(sc * f, minSc, minSc * 7), wx = (px - tx) / sc, wy = (py - ty) / sc;
+  const ns = clamp(sc * f, minSc, maxSc()), wx = (px - tx) / sc, wy = (py - ty) / sc;
   sc = ns; tx = px - wx * sc; ty = py - wy * sc; clampView();
 }
 function resize() {
@@ -1359,7 +1347,7 @@ function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   cw = r.width; ch = r.height;
   canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
-  minSc = Math.min(cw / W, ch / H);
+  minSc = Math.min(cw / SW, ch / SH);
   if (needsFit) { fit(); needsFit = false; } else clampView();
   needsDraw = true;
 }
@@ -1403,6 +1391,7 @@ function loadScene(id) {
   S.current = id; save();
   for (const k in built) if (k !== id) built[k].bgCache = null;
   scene = getScene(id); found = foundSet(id);
+  SW = scene.def.w || W; SH = scene.def.h || H;
   rings.length = 0; needsFit = true;
   $('complete').hidden = true;
   if (found.size === scene.trash.length) showComplete(false);
@@ -1513,7 +1502,7 @@ canvas.addEventListener('pointermove', e => {
   } else if (pointers.size === 2 && pinch) {
     const [a, b] = [...pointers.values()];
     const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    const ns = clamp(pinch.sc0 * d / pinch.d0, minSc, minSc * 7);
+    const ns = clamp(pinch.sc0 * d / pinch.d0, minSc, maxSc());
     const wx = (pinch.mx - pinch.tx0) / pinch.sc0, wy = (pinch.my - pinch.ty0) / pinch.sc0;
     sc = ns; tx = mx - wx * sc; ty = my - wy * sc; clampView();
   }
@@ -1655,11 +1644,16 @@ $('storeBtn').onclick = () => {
 function renderPlates() {
   const box = $('plates'); box.innerHTML = '';
   for (const d of SCENE_DEFS) {
-    const open = S.unlocked.includes(d.id), sc2 = getScene(d.id), f = foundSet(d.id), n = sc2.trash.length;
+    const open = isOpen(d.id), sc2 = getScene(d.id), f = foundSet(d.id), n = sc2.trash.length;
     const card = el('div', 'plate' + (open ? '' : ' locked'));
     const cv = el('canvas'); cv.width = 450; cv.height = 300;
-    const g = cv.getContext('2d'); g.scale(450 / W, 300 / H);
-    drawWorld(g, sc2, f, { x0: 0, y0: 0, x1: W, y1: H });
+    const thumb = () => {
+      const g = cv.getContext('2d'), w = d.w || W, h = d.h || H, k = Math.max(450 / w, 300 / h);
+      g.translate((450 - w * k) / 2, d.img ? 0 : (300 - h * k) / 2); g.scale(k, k);
+      drawWorld(g, sc2, f, { x0: 0, y0: 0, x1: w, y1: h });
+    };
+    thumb();
+    if (d.img && !sceneImg(d)) IMGS[d.id].addEventListener('load', () => { cv.getContext('2d').resetTransform(); thumb(); }, { once: true });
     const body = el('div', 'body', `<h3>${d.name}</h3><p>${d.blurb}</p>`);
     const meta = el('div', 'meta');
     let btn;
@@ -1691,7 +1685,7 @@ $('resetBtn').onclick = () => {
 };
 
 // ---------- start ----------
-loadScene(S.unlocked.includes(S.current) ? S.current : 'park');
+loadScene(isOpen(S.current) ? S.current : 'park');
 $('intro').hidden = S.seenIntro;
 show('zoek');
 })();
